@@ -29,6 +29,34 @@ export default function LoginPage() {
     setError(null);
 
     try {
+      // Step 1: If we haven't checked 2FA yet, pre-validate credentials
+      if (!showTotp) {
+        const checkRes = await fetch("/api/auth/check-credentials", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password, loginType: "client" }),
+        });
+
+        const checkData = await checkRes.json();
+
+        if (!checkRes.ok) {
+          const msg =
+            checkData?.error?.code === "RATE_LIMITED"
+              ? "Trop de tentatives de connexion. Veuillez réessayer dans quelques minutes."
+              : checkData?.error?.message || "Email ou mot de passe incorrect.";
+          setError(msg);
+          toast.error(msg);
+          return;
+        }
+
+        // If 2FA is required, show the TOTP input and wait for code
+        if (checkData.data?.requires2FA) {
+          setShowTotp(true);
+          return;
+        }
+      }
+
+      // Step 2: Sign in with all credentials (including TOTP if required)
       const result = await signIn("credentials", {
         email,
         password,
@@ -45,28 +73,14 @@ export default function LoginPage() {
         return;
       }
 
-      if (result.error === "2FA_REQUIRED") {
-        setShowTotp(true);
-        setError(null);
-        return;
-      }
-
-      if (result.error === "2FA_INVALID") {
-        const msg = "Code 2FA invalide. Veuillez réessayer.";
-        setError(msg);
-        toast.error(msg);
-        return;
-      }
-
-      if (result.error === "RATE_LIMITED") {
-        const msg = "Trop de tentatives de connexion. Veuillez réessayer dans quelques minutes.";
-        setError(msg);
-        toast.error(msg);
-        return;
-      }
-
       if (result.error) {
-        const msg = "Email ou mot de passe incorrect.";
+        // Map known error codes to user-friendly messages
+        const errorMessages: Record<string, string> = {
+          "2FA_INVALID": "Code 2FA invalide. Veuillez réessayer.",
+          "RATE_LIMITED": "Trop de tentatives de connexion. Veuillez réessayer dans quelques minutes.",
+          "NOT_ADMIN": "Accès réservé aux administrateurs.",
+        };
+        const msg = errorMessages[result.error] || "Email ou mot de passe incorrect.";
         setError(msg);
         toast.error(msg);
         return;

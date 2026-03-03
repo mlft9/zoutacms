@@ -13,7 +13,10 @@ import {
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
-  totpCode: z.string().optional(),
+  totpCode: z.preprocess(
+    (val) => (val === "" || val === "undefined" || val === "null" ? undefined : val),
+    z.string().optional()
+  ),
   loginType: z.enum(["client", "admin"]).default("client"),
 });
 
