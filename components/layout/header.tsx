@@ -18,8 +18,11 @@ interface HeaderProps {
 
 export function Header({ user, title }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
+
+  useEffect(() => setMounted(true), []);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -58,15 +61,15 @@ export function Header({ user, title }: HeaderProps) {
       <div className="flex items-center gap-2">
         {/* Dark mode toggle */}
         <button
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
           className="flex items-center justify-center h-9 w-9 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
           aria-label="Toggle dark mode"
         >
-          {theme === "dark" ? (
+          {mounted && (resolvedTheme === "dark" ? (
             <Sun className="h-4 w-4" />
           ) : (
             <Moon className="h-4 w-4" />
-          )}
+          ))}
         </button>
 
         {/* User menu */}
