@@ -1,0 +1,56 @@
+{
+  "name": "zoutacms",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "docker:dev": "docker compose -f docker-compose.dev.yml up",
+    "docker:prod": "docker compose up -d --build"
+  },
+  "dependencies": {
+    "@prisma/client": "^5",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2",
+    "lucide-react": "^0.400.0",
+    "next": "^14.2.35",
+    "next-auth": "^4",
+    "next-themes": "^0.3.0",
+    "qrcode": "^1.5.3",
+    "react": "^18",
+    "react-dom": "^18",
+    "sonner": "^1",
+    "speakeasy": "^2.0.0",
+    "tailwind-merge": "^2",
+    "zod": "^3"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/speakeasy": "^2.0.7",
+    "@vitejs/plugin-react": "^4",
+    "autoprefixer": "^10",
+    "eslint": "^8",
+    "eslint-config-next": "14",
+    "postcss": "^8",
+    "prisma": "^5",
+    "tailwindcss": "^3",
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "vitest": "^1"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

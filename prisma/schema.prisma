@@ -1,0 +1,69 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  firstName   String?
+  lastName    String?
+  role        Role     @default(CLIENT)
+  totpSecret  String?
+  totpEnabled Boolean  @default(false)
+  // Multi-tenant preparation (null = mono-tenant MVP)
+  tenantId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Security: audit trail for login attempts
+  loginAttempts LoginAttempt[]
+  // Password reset tokens
+  passwordResets PasswordReset[]
+
+  @@index([email])
+  @@index([role])
+  @@index([tenantId])
+}
+
+enum Role {
+  ADMIN
+  CLIENT
+}
+
+// Security audit trail for login attempts (Phase 1 requirement)
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email     String
+  ip        String
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([ip])
+  @@index([email])
+  @@index([createdAt])
+}
+
+// Password reset tokens
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
