@@ -75,11 +75,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Admin portal: only ADMIN accounts allowed
+    // Return same error as invalid credentials to avoid user enumeration
     if (loginType === "admin" && user.role !== "ADMIN") {
+      recordFailedAttempt(ip);
       return apiError(
-        ErrorCodes.FORBIDDEN,
-        "Accès réservé aux administrateurs.",
-        403,
+        ErrorCodes.INVALID_CREDENTIALS,
+        "Email ou mot de passe incorrect.",
+        401,
       );
     }
 

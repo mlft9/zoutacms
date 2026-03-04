@@ -38,9 +38,7 @@ export default function AdminLoginPage() {
           const msg =
             checkData?.error?.code === "RATE_LIMITED"
               ? "Trop de tentatives. Réessayez dans quelques minutes."
-              : checkData?.error?.code === "FORBIDDEN"
-                ? "Accès réservé aux administrateurs."
-                : checkData?.error?.message || "Email ou mot de passe incorrect.";
+              : checkData?.error?.message || "Email ou mot de passe incorrect.";
           setError(msg);
           toast.error(msg);
           return;
@@ -74,7 +72,6 @@ export default function AdminLoginPage() {
         const errorMessages: Record<string, string> = {
           "2FA_INVALID": "Code 2FA invalide. Veuillez réessayer.",
           "RATE_LIMITED": "Trop de tentatives. Réessayez dans quelques minutes.",
-          "NOT_ADMIN": "Accès réservé aux administrateurs.",
         };
         const msg = errorMessages[result.error] || "Email ou mot de passe incorrect.";
         setError(msg);
