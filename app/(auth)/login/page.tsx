@@ -28,6 +28,7 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
+    let success = false;
     try {
       // Step 1: If we haven't checked 2FA yet, pre-validate credentials
       if (!showTotp) {
@@ -87,6 +88,7 @@ export default function LoginPage() {
       }
 
       toast.success("Connexion réussie !");
+      success = true;
       router.push(callbackUrl);
       router.refresh();
     } catch {
@@ -94,7 +96,7 @@ export default function LoginPage() {
       setError(msg);
       toast.error(msg);
     } finally {
-      setLoading(false);
+      if (!success) setLoading(false);
     }
   }
 

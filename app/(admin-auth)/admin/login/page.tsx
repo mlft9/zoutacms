@@ -22,6 +22,7 @@ export default function AdminLoginPage() {
     setLoading(true);
     setError(null);
 
+    let success = false;
     try {
       // Step 1: If we haven't checked 2FA yet, pre-validate credentials
       if (!showTotp) {
@@ -82,6 +83,7 @@ export default function AdminLoginPage() {
       }
 
       toast.success("Connexion admin réussie !");
+      success = true;
       router.push("/admin/dashboard");
       router.refresh();
     } catch {
@@ -89,7 +91,7 @@ export default function AdminLoginPage() {
       setError(msg);
       toast.error(msg);
     } finally {
-      setLoading(false);
+      if (!success) setLoading(false);
     }
   }
 

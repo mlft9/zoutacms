@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { User, LogOut, Settings, Sun, Moon, ChevronDown } from "lucide-react";
@@ -19,6 +20,7 @@ interface HeaderProps {
 export function Header({ user, title }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
   const { resolvedTheme, setTheme } = useTheme();
 
@@ -123,7 +125,7 @@ export function Header({ user, title }: HeaderProps) {
                 <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
 
                 <button
-                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  onClick={async () => { await signOut({ redirect: false }); router.push("/login"); }}
                   className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
                 >
                   <LogOut className="h-4 w-4" />
