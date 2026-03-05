@@ -3,12 +3,13 @@ import { getServerSession } from "next-auth";
 import * as speakeasy from "speakeasy";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { decrypt } from "@/lib/crypto";
 import { totpVerifySchema } from "@/lib/validations";
 import { apiSuccess, apiError, ErrorCodes } from "@/lib/api-response";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session) return apiError(ErrorCodes.UNAUTHORIZED, "Non authentifié.", 401);
+  if (!session?.user) return apiError(ErrorCodes.UNAUTHORIZED, "Non authentifié.", 401);
 
   let body: unknown;
   try {
@@ -35,8 +36,10 @@ export async function POST(req: NextRequest) {
     return apiError(ErrorCodes.TOTP_NOT_ENABLED, "Le 2FA n'est pas activé sur ce compte.", 400);
   }
 
+  const plainSecret = decrypt(user.totpSecret);
+
   const verified = speakeasy.totp.verify({
-    secret: user.totpSecret,
+    secret: plainSecret,
     encoding: "base32",
     token: code,
     window: 1,
@@ -46,10 +49,20 @@ export async function POST(req: NextRequest) {
     return apiError(ErrorCodes.TOTP_INVALID, "Code 2FA invalide.", 400);
   }
 
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { totpEnabled: false, totpSecret: null },
-  });
+  const ip =
+    (req.headers.get("x-forwarded-for") ?? "").split(",")[0] ||
+    req.headers.get("x-real-ip") ||
+    "unknown";
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: session.user.id },
+      data: { totpEnabled: false, totpSecret: null, tokenVersion: { increment: 1 } },
+    }),
+    prisma.auditLog.create({
+      data: { userId: session.user.id, action: "2FA_DISABLED", ip },
+    }),
+  ]);
 
   return apiSuccess({ message: "Authentification à deux facteurs désactivée." });
 }

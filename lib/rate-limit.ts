@@ -1,34 +1,4 @@
-/**
- * Simple in-memory rate limiter for auth routes.
- * For production, replace with Redis-backed solution (Upstash, etc.)
- */
-
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-  consecutiveFailures: number;
-  blockedUntil?: number;
-}
-
-const store = new Map<string, RateLimitEntry>();
-
-// Cleanup old entries periodically
-if (typeof setInterval !== "undefined") {
-  setInterval(
-    () => {
-      const now = Date.now();
-      for (const [key, entry] of store.entries()) {
-        if (
-          entry.resetAt < now &&
-          (!entry.blockedUntil || entry.blockedUntil < now)
-        ) {
-          store.delete(key);
-        }
-      }
-    },
-    5 * 60 * 1000,
-  ); // every 5 minutes
-}
+import { prisma } from "@/lib/prisma";
 
 export interface RateLimitResult {
   success: boolean;
@@ -40,100 +10,115 @@ export interface RateLimitResult {
 }
 
 /**
- * Check rate limit for login attempts.
- * @param ip - IP address
- * @param maxPerMinute - max attempts per minute (default: 5)
- * @param maxConsecutiveFails - block after this many consecutive failures (default: 10)
- * @param blockDurationMs - block duration in ms (default: 15 min)
+ * Check if an IP is currently rate limited (read-only, no increment).
+ * Only failed attempts (via recordFailedAttempt) consume credits.
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   ip: string,
-  maxPerMinute = 5,
-  maxConsecutiveFails = 10,
+  maxPerWindow = 5,
+  _maxConsecutiveFails = 10,
   blockDurationMs = 15 * 60 * 1000,
-): RateLimitResult {
-  const now = Date.now();
-  const windowMs = 60 * 1000; // 1 minute
+): Promise<RateLimitResult> {
+  const now = new Date();
 
-  let entry = store.get(ip);
+  const entry = await prisma.rateLimitEntry.findUnique({ where: { ip } });
 
-  // Check if blocked
+  // Check if currently blocked
   if (entry?.blockedUntil && entry.blockedUntil > now) {
     return {
       success: false,
-      limit: maxPerMinute,
+      limit: maxPerWindow,
       remaining: 0,
-      resetAt: entry.blockedUntil,
+      resetAt: entry.blockedUntil.getTime(),
       blocked: true,
-      retryAfter: Math.ceil((entry.blockedUntil - now) / 1000),
+      retryAfter: Math.ceil((entry.blockedUntil.getTime() - now.getTime()) / 1000),
     };
   }
 
-  // Reset window if expired
-  if (!entry || entry.resetAt < now) {
-    entry = { count: 0, resetAt: now + windowMs, consecutiveFailures: 0 };
+  // Window expired or no entry → not rate limited
+  if (!entry || entry.resetAt <= now) {
+    return {
+      success: true,
+      limit: maxPerWindow,
+      remaining: maxPerWindow,
+      resetAt: new Date(now.getTime() + 60 * 1000).getTime(),
+      blocked: false,
+    };
   }
 
-  entry.count++;
-  store.set(ip, entry);
+  const remaining = Math.max(0, maxPerWindow - entry.count);
 
-  const remaining = Math.max(0, maxPerMinute - entry.count);
-
-  if (entry.count > maxPerMinute) {
+  if (entry.count >= maxPerWindow) {
     return {
       success: false,
-      limit: maxPerMinute,
+      limit: maxPerWindow,
       remaining: 0,
-      resetAt: entry.resetAt,
+      resetAt: entry.resetAt.getTime(),
       blocked: false,
-      retryAfter: Math.ceil((entry.resetAt - now) / 1000),
+      retryAfter: Math.ceil((entry.resetAt.getTime() - now.getTime()) / 1000),
     };
   }
 
   return {
     success: true,
-    limit: maxPerMinute,
+    limit: maxPerWindow,
     remaining,
-    resetAt: entry.resetAt,
+    resetAt: entry.resetAt.getTime(),
     blocked: false,
   };
 }
 
 /**
- * Record a failed login attempt for the IP.
- * Blocks the IP after maxConsecutiveFails.
+ * Record a failed login attempt. Blocks the IP after maxConsecutiveFails.
  */
-export function recordFailedAttempt(
+export async function recordFailedAttempt(
   ip: string,
   maxConsecutiveFails = 10,
   blockDurationMs = 15 * 60 * 1000,
-): void {
-  const now = Date.now();
+): Promise<void> {
+  const now = new Date();
   const windowMs = 60 * 1000;
 
-  let entry = store.get(ip);
-  if (!entry || entry.resetAt < now) {
-    entry = { count: 1, resetAt: now + windowMs, consecutiveFailures: 0 };
-  }
+  const entry = await prisma.rateLimitEntry.findUnique({ where: { ip } });
+  const currentFailures = entry?.consecutiveFailures ?? 0;
+  const newFailures = currentFailures + 1;
+  const shouldBlock = newFailures >= maxConsecutiveFails;
+  const windowExpired = !entry || entry.resetAt <= now;
 
-  entry.consecutiveFailures++;
-
-  if (entry.consecutiveFailures >= maxConsecutiveFails) {
-    entry.blockedUntil = now + blockDurationMs;
-    entry.consecutiveFailures = 0; // reset after blocking
-  }
-
-  store.set(ip, entry);
+  await prisma.rateLimitEntry.upsert({
+    where: { ip },
+    create: {
+      ip,
+      count: 1,
+      resetAt: new Date(now.getTime() + windowMs),
+      consecutiveFailures: shouldBlock ? 0 : 1,
+      blockedUntil: shouldBlock ? new Date(now.getTime() + blockDurationMs) : null,
+    },
+    update: {
+      count: windowExpired ? 1 : { increment: 1 },
+      resetAt: windowExpired ? new Date(now.getTime() + windowMs) : undefined,
+      consecutiveFailures: shouldBlock ? 0 : { increment: 1 },
+      blockedUntil: shouldBlock ? new Date(now.getTime() + blockDurationMs) : undefined,
+    },
+  });
 }
 
 /**
  * Reset consecutive failures on successful login.
  */
-export function recordSuccessfulAttempt(ip: string): void {
-  const entry = store.get(ip);
-  if (entry) {
-    entry.consecutiveFailures = 0;
-    entry.blockedUntil = undefined;
-    store.set(ip, entry);
-  }
+export async function recordSuccessfulAttempt(ip: string): Promise<void> {
+  await prisma.rateLimitEntry.upsert({
+    where: { ip },
+    create: {
+      ip,
+      count: 1,
+      resetAt: new Date(),
+      consecutiveFailures: 0,
+      blockedUntil: null,
+    },
+    update: {
+      consecutiveFailures: 0,
+      blockedUntil: null,
+    },
+  });
 }

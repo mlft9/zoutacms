@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       req.headers.get("x-real-ip") ||
       "unknown";
 
-    const rl = checkRateLimit(ip, 5, 10, 15 * 60 * 1000);
+    const rl = await checkRateLimit(ip, 5, 10, 15 * 60 * 1000);
     if (!rl.success) {
       return apiError(
         ErrorCodes.RATE_LIMITED,
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!user) {
-      recordFailedAttempt(ip);
+      await recordFailedAttempt(ip);
       return apiError(
         ErrorCodes.INVALID_CREDENTIALS,
         "Email ou mot de passe incorrect.",
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     const passwordValid = await compare(password, user.password);
     if (!passwordValid) {
-      recordFailedAttempt(ip);
+      await recordFailedAttempt(ip);
       return apiError(
         ErrorCodes.INVALID_CREDENTIALS,
         "Email ou mot de passe incorrect.",
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     // Admin portal: only ADMIN accounts allowed
     // Return same error as invalid credentials to avoid user enumeration
     if (loginType === "admin" && user.role !== "ADMIN") {
-      recordFailedAttempt(ip);
+      await recordFailedAttempt(ip);
       return apiError(
         ErrorCodes.INVALID_CREDENTIALS,
         "Email ou mot de passe incorrect.",

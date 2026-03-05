@@ -7,7 +7,7 @@ import { apiSuccess, apiError, ErrorCodes } from "@/lib/api-response";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session) return apiError(ErrorCodes.UNAUTHORIZED, "Non authentifié.", 401);
+  if (!session?.user) return apiError(ErrorCodes.UNAUTHORIZED, "Non authentifié.", 401);
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -29,7 +29,7 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session) return apiError(ErrorCodes.UNAUTHORIZED, "Non authentifié.", 401);
+  if (!session?.user) return apiError(ErrorCodes.UNAUTHORIZED, "Non authentifié.", 401);
 
   let body: unknown;
   try {

@@ -1,14 +1,24 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { compare } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import * as speakeasy from "speakeasy";
 import {
-  checkRateLimit,
   recordFailedAttempt,
   recordSuccessfulAttempt,
 } from "@/lib/rate-limit";
+import { decrypt } from "@/lib/crypto";
+
+// Lazy-initialized dummy hash used to equalize timing when a user is not found
+// Prevents timing-based email enumeration attacks
+let _dummyHash: string | null = null;
+async function getDummyHash(): Promise<string> {
+  if (!_dummyHash) {
+    _dummyHash = await hash("__dummy_password_never_matches__", 12);
+  }
+  return _dummyHash;
+}
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -23,7 +33,7 @@ const loginSchema = z.object({
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
-    maxAge: 7 * 24 * 60 * 60, // 7 days
+    maxAge: 24 * 60 * 60, // 24 hours (revocable via tokenVersion)
   },
   pages: {
     signIn: "/login",
@@ -50,12 +60,6 @@ export const authOptions: NextAuthOptions = {
           (req?.headers?.["x-real-ip"] as string) ||
           "unknown";
 
-        // Rate limiting: max 5 login attempts per minute per IP
-        const rl = checkRateLimit(ip, 5, 10, 15 * 60 * 1000);
-        if (!rl.success) {
-          throw new Error("RATE_LIMITED");
-        }
-
         const user = await prisma.user.findUnique({
           where: { email },
         });
@@ -73,15 +77,17 @@ export const authOptions: NextAuthOptions = {
         };
 
         if (!user) {
+          // Dummy compare to prevent timing-based user enumeration
+          await compare(password, await getDummyHash());
           await recordAttempt(false);
-          recordFailedAttempt(ip);
+          await recordFailedAttempt(ip);
           return null;
         }
 
         const passwordValid = await compare(password, user.password);
         if (!passwordValid) {
           await recordAttempt(false);
-          recordFailedAttempt(ip);
+          await recordFailedAttempt(ip);
           return null;
         }
 
@@ -98,8 +104,10 @@ export const authOptions: NextAuthOptions = {
             throw new Error("2FA_REQUIRED");
           }
 
+          const plainSecret = decrypt(user.totpSecret);
+
           const verified = speakeasy.totp.verify({
-            secret: user.totpSecret,
+            secret: plainSecret,
             encoding: "base32",
             token: totpCode,
             window: 1,
@@ -107,13 +115,13 @@ export const authOptions: NextAuthOptions = {
 
           if (!verified) {
             await recordAttempt(false);
-            recordFailedAttempt(ip);
+            await recordFailedAttempt(ip);
             throw new Error("2FA_INVALID");
           }
         }
 
         await recordAttempt(true);
-        recordSuccessfulAttempt(ip);
+        await recordSuccessfulAttempt(ip);
 
         return {
           id: user.id,
@@ -124,6 +132,7 @@ export const authOptions: NextAuthOptions = {
               : user.email,
           role: user.role,
           portal: loginType,
+          tokenVersion: user.tokenVersion,
         };
       },
     }),
@@ -131,13 +140,35 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        // Initial sign-in: embed tokenVersion in the JWT
         token.id = user.id;
         token.role = (user as { id: string; role: string; portal: string }).role;
         token.portal = (user as { portal: "admin" | "client" }).portal;
+        token.tokenVersion = (user as { tokenVersion: number }).tokenVersion;
+      } else {
+        // Subsequent requests: verify the token hasn't been revoked + sync name from DB
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { tokenVersion: true, firstName: true, lastName: true, email: true },
+        });
+        if (!dbUser || dbUser.tokenVersion !== (token.tokenVersion as number)) {
+          // Token revoked — mark it (cannot return null in NextAuth v4, jose rejects it)
+          return { ...token, tokenRevoked: true };
+        }
+        // Keep name and email in sync with DB (reflects profile updates without re-login)
+        token.name =
+          dbUser.firstName && dbUser.lastName
+            ? `${dbUser.firstName} ${dbUser.lastName}`
+            : dbUser.email;
+        token.email = dbUser.email;
       }
       return token;
     },
     async session({ session, token }) {
+      if ((token as { tokenRevoked?: boolean }).tokenRevoked) {
+        // Token was revoked (tokenVersion mismatch) — return expired session with no user
+        return { expires: new Date(0).toISOString() } as typeof session;
+      }
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;

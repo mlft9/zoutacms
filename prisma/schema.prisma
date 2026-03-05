@@ -11,23 +11,26 @@ datasource db {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  password    String
-  firstName   String?
-  lastName    String?
-  role        Role     @default(CLIENT)
-  totpSecret  String?
-  totpEnabled Boolean  @default(false)
+  id           String   @id @default(cuid())
+  email        String   @unique
+  password     String
+  firstName    String?
+  lastName     String?
+  role         Role     @default(CLIENT)
+  totpSecret   String?
+  totpEnabled  Boolean  @default(false)
+  tokenVersion Int      @default(0)
   // Multi-tenant preparation (null = mono-tenant MVP)
-  tenantId    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  tenantId     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Security: audit trail for login attempts
   loginAttempts LoginAttempt[]
   // Password reset tokens
   passwordResets PasswordReset[]
+  // Audit logs
+  auditLogs AuditLog[]
 
   @@index([email])
   @@index([role])
@@ -51,6 +54,41 @@ model LoginAttempt {
 
   @@index([ip])
   @@index([email])
+  @@index([createdAt])
+}
+
+// Global platform settings (created once during setup wizard)
+model SystemSettings {
+  id              String   @id @default(cuid())
+  platformName    String   @default("ZoutaCMS")
+  platformUrl     String?
+  isSetupComplete Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Security: DB-backed rate limiting per IP
+model RateLimitEntry {
+  ip                  String    @id
+  count               Int       @default(0)
+  resetAt             DateTime
+  consecutiveFailures Int       @default(0)
+  blockedUntil        DateTime?
+  updatedAt           DateTime  @updatedAt
+}
+
+// Security audit log for sensitive actions
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  ip        String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
   @@index([createdAt])
 }
 

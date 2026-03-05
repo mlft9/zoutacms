@@ -6,20 +6,7 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🌱 Seeding database...");
 
-  // Create admin user
-  const adminPassword = await hash("Admin@123!", 12);
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@zoutacms.local" },
-    update: {},
-    create: {
-      email: "admin@zoutacms.local",
-      password: adminPassword,
-      firstName: "Admin",
-      lastName: "ZoutaCMS",
-      role: "ADMIN",
-    },
-  });
-  console.log(`✅ Admin créé : ${admin.email}`);
+  // Admin is created via the setup wizard (/setup), not by the seed.
 
   // Create test client users
   const clientPassword = await hash("Client@123!", 12);
@@ -51,10 +38,10 @@ async function main() {
   console.log(`✅ Client créé : ${client2.email}`);
 
   console.log("\n🎉 Seed terminé !");
-  console.log("\nComptes disponibles :");
-  console.log("  Admin  : admin@zoutacms.local / Admin@123!");
+  console.log("\nComptes de test disponibles :");
   console.log("  Client : alice@example.com / Client@123!");
   console.log("  Client : bob@example.com / Client@123!");
+  console.log("\n⚠️  Le compte admin se crée via le wizard /setup");
 }
 
 main()

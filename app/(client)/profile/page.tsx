@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Mon profil" };
 
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);
-  if (!session) redirect("/login");
+  if (!session?.user) redirect("/login");
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },

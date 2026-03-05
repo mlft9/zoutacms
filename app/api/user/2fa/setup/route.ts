@@ -4,11 +4,12 @@ import * as speakeasy from "speakeasy";
 import * as QRCode from "qrcode";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { encrypt } from "@/lib/crypto";
 import { apiSuccess, apiError, ErrorCodes } from "@/lib/api-response";
 
 export async function POST(_req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session) return apiError(ErrorCodes.UNAUTHORIZED, "Non authentifié.", 401);
+  if (!session?.user) return apiError(ErrorCodes.UNAUTHORIZED, "Non authentifié.", 401);
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -31,11 +32,11 @@ export async function POST(_req: NextRequest) {
     length: 20,
   });
 
-  // Temporarily store the secret (not yet "enabled") so we can verify it
+  // Temporarily store the secret encrypted (not yet "enabled") so we can verify it
   await prisma.user.update({
     where: { id: session.user.id },
     data: {
-      totpSecret: secret.base32,
+      totpSecret: encrypt(secret.base32),
       totpEnabled: false, // not enabled until verified
     },
   });

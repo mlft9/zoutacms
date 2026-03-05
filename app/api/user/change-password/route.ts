@@ -8,7 +8,7 @@ import { apiSuccess, apiError, ErrorCodes } from "@/lib/api-response";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session) return apiError(ErrorCodes.UNAUTHORIZED, "Non authentifié.", 401);
+  if (!session?.user) return apiError(ErrorCodes.UNAUTHORIZED, "Non authentifié.", 401);
 
   let body: unknown;
   try {
@@ -43,10 +43,20 @@ export async function POST(req: NextRequest) {
 
   const hashedPassword = await hash(newPassword, 12);
 
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { password: hashedPassword },
-  });
+  const ip =
+    (req.headers.get("x-forwarded-for") ?? "").split(",")[0] ||
+    req.headers.get("x-real-ip") ||
+    "unknown";
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: session.user.id },
+      data: { password: hashedPassword, tokenVersion: { increment: 1 } },
+    }),
+    prisma.auditLog.create({
+      data: { userId: session.user.id, action: "PASSWORD_CHANGED", ip },
+    }),
+  ]);
 
   return apiSuccess({ message: "Mot de passe modifié avec succès." });
 }
