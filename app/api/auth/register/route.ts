@@ -15,9 +15,9 @@ export async function POST(req: NextRequest) {
   const ip = getIpFromRequest(req);
 
   // Rate limiting: max 5 registrations per minute per IP
-  const rl = checkRateLimit(ip, 5);
+  const rl = await checkRateLimit(ip, 5);
   if (!rl.success) {
-    recordFailedAttempt(ip);
+    await recordFailedAttempt(ip);
     return apiError(
       ErrorCodes.RATE_LIMITED,
       `Trop de tentatives. Réessayez dans ${rl.retryAfter ?? 60} secondes.`,

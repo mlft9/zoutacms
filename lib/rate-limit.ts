@@ -17,7 +17,7 @@ export async function checkRateLimit(
   ip: string,
   maxPerWindow = 5,
   _maxConsecutiveFails = 10,
-  blockDurationMs = 15 * 60 * 1000,
+  _blockDurationMs = 15 * 60 * 1000,
 ): Promise<RateLimitResult> {
   const now = new Date();
 

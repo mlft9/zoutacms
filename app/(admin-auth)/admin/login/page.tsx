@@ -1,12 +1,52 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
+
+/** Sign in against the admin-auth NextAuth instance (separate cookie). */
+async function adminSignIn(credentials: {
+  email: string;
+  password: string;
+  loginType: string;
+  totpCode?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  // 1. Get CSRF token from the admin-auth instance
+  const csrfRes = await fetch("/api/admin-auth/csrf");
+  const { csrfToken } = await csrfRes.json();
+
+  // 2. POST to credentials callback
+  const body = new URLSearchParams({
+    csrfToken,
+    callbackUrl: "/admin/dashboard",
+    json: "true",
+    email: credentials.email,
+    password: credentials.password,
+    loginType: credentials.loginType,
+    ...(credentials.totpCode ? { totpCode: credentials.totpCode } : {}),
+  });
+
+  const res = await fetch("/api/admin-auth/callback/credentials", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok || !data.url || data.error) {
+    return { ok: false, error: data.error ?? "UNKNOWN" };
+  }
+
+  // NextAuth returns the callback URL on success; a redirect to /api/admin-auth/error on failure
+  if (data.url?.includes("/api/admin-auth/error") || data.url?.includes("/admin/login")) {
+    return { ok: false, error: data.error ?? "CREDENTIALS" };
+  }
+
+  return { ok: true };
+}
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -24,7 +64,7 @@ export default function AdminLoginPage() {
 
     let success = false;
     try {
-      // Step 1: If we haven't checked 2FA yet, pre-validate credentials
+      // Step 1: Pre-validate credentials (check 2FA requirement without creating session)
       if (!showTotp) {
         const checkRes = await fetch("/api/auth/check-credentials", {
           method: "POST",
@@ -44,36 +84,27 @@ export default function AdminLoginPage() {
           return;
         }
 
-        // If 2FA is required, show the TOTP input and wait for code
         if (checkData.data?.requires2FA) {
           setShowTotp(true);
           return;
         }
       }
 
-      // Step 2: Sign in with all credentials (including TOTP if required)
-      const result = await signIn("credentials", {
+      // Step 2: Sign in via admin-auth (sets admin session cookie, leaves client cookie intact)
+      const result = await adminSignIn({
         email,
         password,
-        totpCode: showTotp ? totpCode : undefined,
         loginType: "admin",
-        redirect: false,
-        callbackUrl: "/admin/dashboard",
+        totpCode: showTotp ? totpCode : undefined,
       });
 
-      if (!result) {
-        const msg = "Une erreur inattendue s'est produite.";
-        setError(msg);
-        toast.error(msg);
-        return;
-      }
-
-      if (result.error) {
+      if (!result.ok) {
         const errorMessages: Record<string, string> = {
           "2FA_INVALID": "Code 2FA invalide. Veuillez réessayer.",
           "RATE_LIMITED": "Trop de tentatives. Réessayez dans quelques minutes.",
+          "NOT_ADMIN": "Accès réservé aux administrateurs.",
         };
-        const msg = errorMessages[result.error] || "Email ou mot de passe incorrect.";
+        const msg = errorMessages[result.error ?? ""] || "Email ou mot de passe incorrect.";
         setError(msg);
         toast.error(msg);
         return;

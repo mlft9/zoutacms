@@ -20,7 +20,7 @@ export default async function AuthLayout({
   const session = await getServerSession(authOptions);
 
   // Redirect anyone already authenticated in client portal
-  if (session && session.user.portal === "client") {
+  if (session && session.user?.portal === "client") {
     redirect("/dashboard");
   }
 

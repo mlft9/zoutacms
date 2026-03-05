@@ -11,9 +11,9 @@ export async function POST(req: NextRequest) {
   const ip = getIpFromRequest(req);
 
   // Strict rate limiting: max 3 per hour per IP
-  const rl = checkRateLimit(ip, 3, 10, 60 * 60 * 1000);
+  const rl = await checkRateLimit(ip, 3, 10, 60 * 60 * 1000);
   if (!rl.success) {
-    recordFailedAttempt(ip);
+    await recordFailedAttempt(ip);
     return apiError(
       ErrorCodes.RATE_LIMITED,
       `Trop de tentatives. Réessayez plus tard.`,

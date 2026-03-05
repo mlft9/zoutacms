@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5",
+    "@types/recharts": "^2.0.1",
     "bcryptjs": "^2.4.3",
     "clsx": "^2",
     "lucide-react": "^0.400.0",
@@ -27,6 +28,7 @@
     "qrcode": "^1.5.3",
     "react": "^18",
     "react-dom": "^18",
+    "recharts": "^3.7.0",
     "sonner": "^1",
     "speakeasy": "^2.0.0",
     "tailwind-merge": "^2",

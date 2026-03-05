@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { compare } from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -82,6 +82,15 @@ export async function POST(req: NextRequest) {
         ErrorCodes.INVALID_CREDENTIALS,
         "Email ou mot de passe incorrect.",
         401,
+      );
+    }
+
+    // Suspended accounts cannot log in
+    if (user.isSuspended) {
+      return apiError(
+        ErrorCodes.FORBIDDEN,
+        "Ce compte a été suspendu. Contactez l'administrateur.",
+        403,
       );
     }
 

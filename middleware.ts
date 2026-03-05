@@ -1,6 +1,7 @@
 import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { ADMIN_SESSION_COOKIE } from "@/lib/auth-constants";
 
 const SETUP_COOKIE = "setup-complete";
 
@@ -22,10 +23,11 @@ export async function middleware(req: NextRequest) {
   }
 
   // CSRF protection: for non-GET API mutations, verify the Origin header matches the host
-  // Exemption: /api/auth is handled by NextAuth which has its own CSRF token
+  // Exemption: /api/auth and /api/admin-auth are handled by NextAuth (own CSRF)
   if (
     pathname.startsWith("/api/") &&
     !pathname.startsWith("/api/auth") &&
+    !pathname.startsWith("/api/admin-auth") &&
     req.method !== "GET" &&
     req.method !== "HEAD" &&
     req.method !== "OPTIONS"
@@ -62,6 +64,7 @@ export async function middleware(req: NextRequest) {
     "/reset-password",
     "/admin/login",
     "/api/auth",
+    "/api/admin-auth",
   ];
   if (publicPaths.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
@@ -72,18 +75,23 @@ export async function middleware(req: NextRequest) {
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
 
   if (isProtected) {
+    const isAdminRoute = pathname.startsWith("/admin");
+
+    // Admin routes: read from the admin session cookie
+    // Client routes: read from the default (client) session cookie
     const token = await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
+      ...(isAdminRoute ? { cookieName: ADMIN_SESSION_COOKIE } : {}),
     });
 
     if (!token || (token as { tokenRevoked?: boolean }).tokenRevoked) {
-      const loginUrl = pathname.startsWith("/admin") ? "/admin/login" : "/login";
+      const loginUrl = isAdminRoute ? "/admin/login" : "/login";
       return NextResponse.redirect(new URL(loginUrl, req.url));
     }
 
     // Admin routes require ADMIN role AND admin portal login
-    if (pathname.startsWith("/admin")) {
+    if (isAdminRoute) {
       if (token.role !== "ADMIN" || token.portal !== "admin") {
         return NextResponse.redirect(new URL("/dashboard", req.url));
       }

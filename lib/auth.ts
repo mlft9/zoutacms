@@ -96,6 +96,13 @@ export const authOptions: NextAuthOptions = {
           await recordAttempt(false);
           throw new Error("NOT_ADMIN");
         }
+
+        // Suspended accounts cannot log in (applies to all portals)
+        if (user.isSuspended) {
+          await recordAttempt(false);
+          throw new Error("ACCOUNT_SUSPENDED");
+        }
+
         // Client portal: anyone (CLIENT or ADMIN) can connect — portal determines the interface
 
         // 2FA verification
@@ -142,9 +149,11 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         // Initial sign-in: embed tokenVersion in the JWT
         token.id = user.id;
-        token.role = (user as { id: string; role: string; portal: string }).role;
-        token.portal = (user as { portal: "admin" | "client" }).portal;
-        token.tokenVersion = (user as { tokenVersion: number }).tokenVersion;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const u = user as any;
+        token.role = u.role;
+        token.portal = u.portal;
+        token.tokenVersion = u.tokenVersion;
       } else {
         // Subsequent requests: verify the token hasn't been revoked + sync name from DB
         const dbUser = await prisma.user.findUnique({

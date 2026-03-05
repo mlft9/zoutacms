@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Shield, ShieldCheck, ShieldOff } from "lucide-react";
-import Image from "next/image";
 
 interface TwoFASectionProps {
   totpEnabled: boolean;

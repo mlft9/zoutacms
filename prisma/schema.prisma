@@ -17,6 +17,7 @@ model User {
   firstName    String?
   lastName     String?
   role         Role     @default(CLIENT)
+  isSuspended  Boolean  @default(false)
   totpSecret   String?
   totpEnabled  Boolean  @default(false)
   tokenVersion Int      @default(0)
@@ -31,6 +32,10 @@ model User {
   passwordResets PasswordReset[]
   // Audit logs
   auditLogs AuditLog[]
+  // Phase 2
+  services      Service[]
+  clientNotes   AdminNote[]              // notes écrites à propos de ce client
+  adminNotes    AdminNote[] @relation("AdminNotes") // notes écrites par cet admin
 
   @@index([email])
   @@index([role])
@@ -77,19 +82,69 @@ model RateLimitEntry {
   updatedAt           DateTime  @updatedAt
 }
 
-// Security audit log for sensitive actions
+// Security audit log for sensitive actions + admin action journal
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   action    String
+  // Phase 2: admin action journal fields (nullable for backward compat)
+  entity    String?
+  entityId  String?
   ip        String?
   meta      Json?
   createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([action])
+  @@index([entity])
   @@index([createdAt])
+}
+
+// Phase 2 — Services
+model Service {
+  id        String        @id @default(cuid())
+  name      String
+  type      ServiceType
+  status    ServiceStatus @default(PENDING)
+  config    Json
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Multi-tenant preparation
+  tenantId  String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([tenantId])
+}
+
+enum ServiceType {
+  VPS
+  MINECRAFT
+}
+
+enum ServiceStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+  TERMINATED
+}
+
+// Phase 2 — Notes internes admin sur un client
+model AdminNote {
+  id        String   @id @default(cuid())
+  content   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminId   String
+  admin     User     @relation("AdminNotes", fields: [adminId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([adminId])
 }
 
 // Password reset tokens

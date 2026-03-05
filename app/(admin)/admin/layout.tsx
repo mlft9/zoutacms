@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { adminAuthOptions } from "@/lib/auth-admin";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
@@ -10,7 +10,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(adminAuthOptions);
 
   if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN" || session.user.portal !== "admin") {
@@ -28,6 +28,7 @@ export default async function AdminLayout({
               email: session.user.email,
               role: session.user.role,
             }}
+            adminPortal
           />
           <main className="flex-1 overflow-y-auto p-6">{children}</main>
         </div>

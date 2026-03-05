@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import * as speakeasy from "speakeasy";
 import * as QRCode from "qrcode";
@@ -7,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { encrypt } from "@/lib/crypto";
 import { apiSuccess, apiError, ErrorCodes } from "@/lib/api-response";
 
-export async function POST(_req: NextRequest) {
+export async function POST() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return apiError(ErrorCodes.UNAUTHORIZED, "Non authentifié.", 401);
 
