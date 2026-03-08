@@ -103,21 +103,29 @@ model AuditLog {
 
 // Phase 2 — Services
 model Service {
-  id        String        @id @default(cuid())
-  name      String
-  type      ServiceType
-  status    ServiceStatus @default(PENDING)
-  config    Json
-  userId    String
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String        @id @default(cuid())
+  name        String
+  type        ServiceType
+  status      ServiceStatus @default(PENDING)
+  config      Json
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Phase 4 — Provider integration
+  externalId  String?       // ID chez le provider (ex: VM ID Proxmox)
+  providerId  String?       // Référence vers ProviderConfig
+  provider    ProviderConfig? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  provisionError String?    // Détail de l'erreur si provisionnement échoué
+  provisionAttempts Int     @default(0)
+  nextRetryAt DateTime?
   // Multi-tenant preparation
-  tenantId  String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  tenantId    String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   @@index([userId])
   @@index([status])
   @@index([type])
+  @@index([providerId])
   @@index([tenantId])
 }
 
@@ -127,10 +135,30 @@ enum ServiceType {
 }
 
 enum ServiceStatus {
+  PENDING
+  PROVISIONING
+  PROVISIONING_FAILED
+  PROVISIONING_TIMEOUT
+  REQUIRES_MANUAL_CHECK
   ACTIVE
   SUSPENDED
-  PENDING
+  TERMINATING
   TERMINATED
+}
+
+// Phase 4 — Provider plugin configuration
+model ProviderConfig {
+  id        String    @id @default(cuid())
+  provider  String    // "proxmox", "hetzner", "pelican"
+  name      String    // Nom affiché (ex: "Proxmox Node 1")
+  config    Json      // URL, token, params spécifiques (chiffrés)
+  isActive  Boolean   @default(true)
+  services  Service[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([provider])
+  @@index([isActive])
 }
 
 // Phase 2 — Notes internes admin sur un client

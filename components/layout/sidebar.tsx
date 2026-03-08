@@ -10,6 +10,7 @@ import {
   Settings,
   FileText,
   Shield,
+  Puzzle,
   ChevronLeft,
   Menu,
 } from "lucide-react";
@@ -25,6 +26,7 @@ const adminNavItems: NavItem[] = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Clients", href: "/admin/clients", icon: Users },
   { label: "Services", href: "/admin/services", icon: Server },
+  { label: "Plugins", href: "/admin/plugins", icon: Puzzle },
   { label: "Logs", href: "/admin/logs", icon: FileText },
   { label: "Paramètres", href: "/admin/settings", icon: Settings },
 ];

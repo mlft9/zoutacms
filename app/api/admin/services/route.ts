@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { apiSuccess, apiError, ErrorCodes } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 import { createServiceSchema } from "@/lib/validations";
+import { provisionService } from "@/lib/provisioning";
 import { Prisma } from "@prisma/client";
 
 export async function GET(req: Request) {
@@ -74,14 +75,22 @@ export async function POST(req: Request) {
   });
   if (!client) return apiError(ErrorCodes.CLIENT_NOT_FOUND, "Client introuvable", 404);
 
+  // Optionally attach a provider if specified
+  const providerId = (parsed.data as { providerId?: string }).providerId ?? null;
+  if (providerId) {
+    const prov = await prisma.providerConfig.findUnique({ where: { id: providerId } });
+    if (!prov) return apiError(ErrorCodes.VALIDATION_ERROR, "Provider introuvable", 404);
+  }
+
   const service = await prisma.$transaction(async (tx) => {
     const newService = await tx.service.create({
       data: {
         name: parsed.data.name,
         type: parsed.data.type,
-        status: parsed.data.status,
+        status: providerId ? "PENDING" : parsed.data.status,
         config: parsed.data.config as Prisma.InputJsonValue,
         userId: parsed.data.userId,
+        ...(providerId ? { providerId } : {}),
       },
       select: {
         id: true,
@@ -104,6 +113,11 @@ export async function POST(req: Request) {
     });
     return newService;
   });
+
+  // If provider attached, trigger provisioning asynchronously
+  if (providerId) {
+    provisionService(service.id).catch(console.error);
+  }
 
   return apiSuccess(service, 201);
 }
