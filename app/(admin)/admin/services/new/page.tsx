@@ -241,7 +241,7 @@ export default function NewServicePage() {
                     />
                   )}
                   {vmTemplates.length === 0 && !loadingResources && (
-                    <p className="text-xs text-orange-600 dark:text-orange-400">Aucun template trouvé. Créez un template cloud-init dans Proxmox et cochez "Convertir en template".</p>
+                    <p className="text-xs text-orange-600 dark:text-orange-400">Aucun template trouvé. Créez un template cloud-init dans Proxmox et cochez &quot;Convertir en template&quot;.</p>
                   )}
                 </div>
 

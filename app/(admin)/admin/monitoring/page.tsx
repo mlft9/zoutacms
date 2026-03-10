@@ -104,7 +104,7 @@ export default function MonitoringPage() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
-  const [config, setConfig] = useState<AlertConfigData | null>(null);
+  const [_config, setConfig] = useState<AlertConfigData | null>(null);
   const [configLoading, setConfigLoading] = useState(false);
   const [discordWebhook, setDiscordWebhook] = useState("");
   const [discordEnabled, setDiscordEnabled] = useState(false);

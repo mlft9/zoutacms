@@ -99,7 +99,7 @@ export default async function ClientDashboardPage() {
             <div className="divide-y dark:divide-gray-800">
               {services.map((service) => {
                 const cfg = statusConfig[service.status as keyof typeof statusConfig];
-                const Icon = cfg.icon;
+                const _Icon = cfg.icon;
                 return (
                   <div key={service.id} className="flex items-center justify-between py-3">
                     <div className="flex items-center gap-3">
@@ -134,7 +134,7 @@ export default async function ClientDashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-              Consultez l'historique de vos factures.
+              Consultez l&apos;historique de vos factures.
             </p>
             <Link href="/invoices">
               <Button variant="secondary" size="sm">Voir les factures</Button>
