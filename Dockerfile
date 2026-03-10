@@ -19,6 +19,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# OpenSSL requis pour que Prisma détecte la version à l'exécution (Alpine 3.17+ = OpenSSL 3.x)
+RUN apk add --no-cache openssl
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
@@ -26,6 +29,11 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
+
+# Next.js standalone ne trace pas automatiquement les binaires Prisma non-natifs
+# On copie explicitement le binaire pour linux-musl + OpenSSL 3.x
+COPY --from=builder /app/node_modules/.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node \
+  ./node_modules/.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node
 
 USER nextjs
 
