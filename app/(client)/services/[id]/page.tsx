@@ -15,9 +15,56 @@ import {
   HardDrive,
   Network,
   Calendar,
+  Activity,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+
+interface HealthMetrics {
+  cpu?: number;
+  ram?: number;
+  ramUsed?: number;
+  ramTotal?: number;
+  diskTotal?: number;
+  netIn?: number;
+  netOut?: number;
+}
+interface HistoryPoint {
+  checkedAt: string;
+  status: "UP" | "DOWN" | "DEGRADED";
+  latency: number | null;
+  metrics: HealthMetrics | null;
+}
+interface MetricsData {
+  latest: { status: "UP" | "DOWN" | "DEGRADED"; latency: number | null; metrics: HealthMetrics | null; checkedAt: string } | null;
+  history: HistoryPoint[];
+}
+
+function formatBytes(bytes?: number): string {
+  if (bytes == null) return "—";
+  if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)} Go`;
+  if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(0)} Mo`;
+  return `${(bytes / 1024).toFixed(0)} Ko`;
+}
+
+function MetricBar({ value, label, sublabel }: { value?: number; label: string; sublabel?: string }) {
+  const pct = value ?? 0;
+  const color = pct >= 90 ? "bg-red-500" : pct >= 70 ? "bg-yellow-500" : "bg-blue-500";
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between text-xs">
+        <span className="text-gray-500 dark:text-gray-400">{label}</span>
+        <span className="font-medium text-gray-900 dark:text-white">
+          {value != null ? `${value}%` : "—"}
+        </span>
+      </div>
+      <div className="h-2 w-full rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      {sublabel && <p className="text-xs text-gray-400">{sublabel}</p>}
+    </div>
+  );
+}
 
 interface Service {
   id: string;
@@ -62,6 +109,7 @@ export default function ServiceDetailPage() {
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<MetricsData | null>(null);
 
   const fetchService = useCallback(async () => {
     const res = await fetch(`/api/client/services/${id}`);
@@ -71,14 +119,22 @@ export default function ServiceDetailPage() {
     setLoading(false);
   }, [id, router]);
 
+  const fetchMetrics = useCallback(async () => {
+    const res = await fetch(`/api/client/services/${id}/metrics`);
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json.success) setMetrics(json.data);
+  }, [id]);
+
   useEffect(() => {
     fetchService();
-    // Poll every 5s while provisioning
+    fetchMetrics();
     const interval = setInterval(() => {
       if (service?.status === "PROVISIONING") fetchService();
     }, 5000);
-    return () => clearInterval(interval);
-  }, [fetchService, service?.status]);
+    const metricsInterval = setInterval(fetchMetrics, 30_000);
+    return () => { clearInterval(interval); clearInterval(metricsInterval); };
+  }, [fetchService, fetchMetrics, service?.status]);
 
   async function handleAction(action: "start" | "stop" | "restart") {
     setActionLoading(action);
@@ -234,18 +290,80 @@ if (loading) return <div className="py-12 text-center text-sm text-gray-500">Cha
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Métriques</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Métriques</CardTitle>
+                {metrics?.latest && (
+                  <div className="flex items-center gap-1.5">
+                    <Activity className="h-3.5 w-3.5 text-gray-400" />
+                    <span className="text-xs text-gray-400">
+                      {metrics.latest.latency != null ? `${metrics.latest.latency}ms` : ""}
+                    </span>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-3">
-                {["CPU", "RAM", "Réseau"].map((m) => (
-                  <div key={m} className="rounded-lg border dark:border-gray-800 p-3 text-center">
-                    <div className="h-8 w-full rounded bg-gray-100 dark:bg-gray-800 mb-2" />
-                    <p className="text-xs text-gray-500">{m}</p>
-                    <p className="text-xs font-medium text-gray-400">Phase 5</p>
+              {!metrics?.latest ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {service.externalId
+                    ? "Aucune donnée de monitoring. Le premier check est en attente."
+                    : "Disponible après le provisionnement."}
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  <MetricBar
+                    value={metrics.latest.metrics?.cpu}
+                    label="CPU"
+                  />
+                  <MetricBar
+                    value={metrics.latest.metrics?.ram}
+                    label="RAM"
+                    sublabel={
+                      metrics.latest.metrics?.ramUsed != null && metrics.latest.metrics?.ramTotal != null
+                        ? `${formatBytes(metrics.latest.metrics.ramUsed)} / ${formatBytes(metrics.latest.metrics.ramTotal)}`
+                        : undefined
+                    }
+                  />
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div className="rounded-lg border dark:border-gray-800 p-3">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Réseau entrant</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {formatBytes(metrics.latest.metrics?.netIn)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border dark:border-gray-800 p-3">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Réseau sortant</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {formatBytes(metrics.latest.metrics?.netOut)}
+                      </p>
+                    </div>
                   </div>
-                ))}
-              </div>
+                  {/* Mini uptime sparkline */}
+                  {metrics.history.length > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        Uptime — {metrics.history.length} derniers checks
+                      </p>
+                      <div className="flex gap-0.5 h-6">
+                        {metrics.history.map((h, i) => (
+                          <div
+                            key={i}
+                            title={`${h.status} — ${new Date(h.checkedAt).toLocaleTimeString("fr-FR")}`}
+                            className={`flex-1 rounded-sm ${
+                              h.status === "UP" ? "bg-green-500" :
+                              h.status === "DEGRADED" ? "bg-orange-400" : "bg-red-500"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-400 mt-1">
+                        <span>{metrics.history[0] ? new Date(metrics.history[0].checkedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : ""}</span>
+                        <span>Maintenant</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

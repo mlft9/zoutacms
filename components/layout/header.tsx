@@ -5,7 +5,7 @@ import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { User, LogOut, Settings, Sun, Moon, ChevronDown } from "lucide-react";
+import { User, LogOut, Settings, Sun, Moon, ChevronDown, Bell } from "lucide-react";
 
 interface HeaderProps {
   user: {
@@ -21,11 +21,27 @@ interface HeaderProps {
 export function Header({ user, title, adminPortal }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [openIncidents, setOpenIncidents] = useState(0);
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
   const { resolvedTheme, setTheme } = useTheme();
 
   useEffect(() => setMounted(true), []);
+
+  // Poll open incidents count for admin portal
+  useEffect(() => {
+    if (!adminPortal) return;
+    const fetchIncidents = async () => {
+      try {
+        const res = await fetch("/api/admin/monitoring/alerts?open=true");
+        const json = await res.json();
+        if (json.success) setOpenIncidents(json.data.length);
+      } catch { /* ignore */ }
+    };
+    fetchIncidents();
+    const interval = setInterval(fetchIncidents, 60_000);
+    return () => clearInterval(interval);
+  }, [adminPortal]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -62,6 +78,21 @@ export function Header({ user, title, adminPortal }: HeaderProps) {
 
       {/* Right side */}
       <div className="flex items-center gap-2">
+        {/* Alert badge (admin only) */}
+        {adminPortal && (
+          <Link
+            href="/admin/monitoring"
+            className="relative flex items-center justify-center h-9 w-9 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+            title="Monitoring"
+          >
+            <Bell className="h-4 w-4" />
+            {openIncidents > 0 && (
+              <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold">
+                {openIncidents > 9 ? "9+" : openIncidents}
+              </span>
+            )}
+          </Link>
+        )}
         {/* Dark mode toggle */}
         <button
           onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}

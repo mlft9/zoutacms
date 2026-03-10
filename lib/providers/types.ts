@@ -29,10 +29,12 @@ export interface ProvisionResult {
 export type ServiceHealthStatus = "running" | "stopped" | "suspended" | "unknown" | "error";
 
 export interface ServiceMetrics {
-  cpu?: number;
-  ram?: number;
-  disk?: number;
-  network?: { in: number; out: number };
+  cpu?: number;            // percentage 0-100
+  ram?: number;            // percentage 0-100
+  ramUsed?: number;        // bytes
+  ramTotal?: number;       // bytes
+  diskTotal?: number;      // bytes
+  network?: { in: number; out: number }; // cumulative bytes
 }
 
 export interface ServiceProvider {

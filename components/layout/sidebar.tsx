@@ -11,6 +11,7 @@ import {
   FileText,
   Shield,
   Puzzle,
+  Activity,
   ChevronLeft,
   Menu,
 } from "lucide-react";
@@ -27,6 +28,7 @@ const adminNavItems: NavItem[] = [
   { label: "Clients", href: "/admin/clients", icon: Users },
   { label: "Services", href: "/admin/services", icon: Server },
   { label: "Plugins", href: "/admin/plugins", icon: Puzzle },
+  { label: "Monitoring", href: "/admin/monitoring", icon: Activity },
   { label: "Logs", href: "/admin/logs", icon: FileText },
   { label: "Paramètres", href: "/admin/settings", icon: Settings },
 ];

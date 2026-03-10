@@ -117,6 +117,9 @@ model Service {
   provisionError String?    // Détail de l'erreur si provisionnement échoué
   provisionAttempts Int     @default(0)
   nextRetryAt DateTime?
+  // Phase 5 — Monitoring
+  healthChecks HealthCheck[]
+  alerts       Alert[]
   // Multi-tenant preparation
   tenantId    String?
   createdAt   DateTime      @default(now())
@@ -173,6 +176,48 @@ model AdminNote {
 
   @@index([userId])
   @@index([adminId])
+}
+
+// Phase 5 — Monitoring
+model HealthCheck {
+  id        String            @id @default(cuid())
+  serviceId String
+  service   Service           @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  status    HealthCheckStatus
+  latency   Int?
+  metrics   Json?             // { cpu, ram, ramUsed, ramTotal, diskTotal, netIn, netOut }
+  error     String?
+  checkedAt DateTime          @default(now())
+
+  @@index([serviceId])
+  @@index([checkedAt])
+}
+
+enum HealthCheckStatus {
+  UP
+  DOWN
+  DEGRADED
+}
+
+model Alert {
+  id         String    @id @default(cuid())
+  serviceId  String
+  service    Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  type       String    // "down", "up", "degraded"
+  message    String?
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([serviceId])
+  @@index([resolvedAt])
+}
+
+model AlertConfig {
+  id             String   @id @default("singleton")
+  panelEnabled   Boolean  @default(true)
+  discordEnabled Boolean  @default(false)
+  discordWebhook String?
+  updatedAt      DateTime @updatedAt
 }
 
 // Password reset tokens

@@ -357,9 +357,11 @@ export class ProxmoxProvider implements ServiceProvider {
     const res = await this.request<ProxmoxVMStatus>("GET", `${this.vmBase(externalId)}/status/current`);
     const d = res.data;
     return {
-      cpu: d.cpu !== undefined ? Math.round(d.cpu * 100) : undefined,
+      cpu: d.cpu !== undefined ? Math.round(d.cpu * 1000) / 10 : undefined, // 1 decimal
       ram: d.mem && d.maxmem ? Math.round((d.mem / d.maxmem) * 100) : undefined,
-      disk: d.disk && d.maxdisk ? Math.round((d.disk / d.maxdisk) * 100) : undefined,
+      ramUsed: d.mem,
+      ramTotal: d.maxmem,
+      diskTotal: d.maxdisk,
       network: d.netin !== undefined ? { in: d.netin, out: d.netout ?? 0 } : undefined,
     };
   }

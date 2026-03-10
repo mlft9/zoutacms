@@ -42,10 +42,10 @@ const STATUS_LABEL: Record<ServiceStatus, string> = {
   PROVISIONING_TIMEOUT: "Timeout", REQUIRES_MANUAL_CHECK: "Vérif. manuelle", TERMINATING: "Résiliation…",
 };
 
-const STATUS_VARIANT: Record<ServiceStatus, "success" | "warning" | "info" | "danger" | "default"> = {
+const STATUS_VARIANT: Record<ServiceStatus, "success" | "warning" | "info" | "danger" | "neutral"> = {
   ACTIVE: "success", SUSPENDED: "warning", PENDING: "info", TERMINATED: "danger",
   PROVISIONING: "info", PROVISIONING_FAILED: "danger", PROVISIONING_TIMEOUT: "danger",
-  REQUIRES_MANUAL_CHECK: "warning", TERMINATING: "warning",
+  REQUIRES_MANUAL_CHECK: "warning", TERMINATING: "neutral",
 };
 
 const EDITABLE_STATUSES: ServiceStatus[] = ["PENDING", "ACTIVE", "SUSPENDED", "TERMINATED"];
