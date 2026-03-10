@@ -4,6 +4,7 @@ const nextConfig = {
   allowedDevOrigins: ["10.0.0.185"],
   experimental: {
     instrumentationHook: true,
+    serverComponentsExternalPackages: ["undici"],
   },
   images: {
     remotePatterns: [],

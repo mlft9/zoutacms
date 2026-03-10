@@ -88,6 +88,7 @@ export const createServiceSchema = z.object({
   status: z.enum(["ACTIVE", "SUSPENDED", "PENDING", "TERMINATED"]).default("PENDING"),
   userId: z.string().min(1, "Client requis"),
   config: z.record(z.unknown()).default({}),
+  providerId: z.string().optional(),
 });
 
 export const updateServiceSchema = z.object({

@@ -41,8 +41,14 @@ export async function provisionService(serviceId: string): Promise<void> {
       ram: config.ram as number | undefined,
       cpu: config.cpu as number | undefined,
       storage: config.storage as number | undefined,
-      os: config.os as string | undefined,
+      templateVmid: config.templateVmid as number | undefined,
+      vmid: config.vmid as number | undefined,
       storagePool: config.storagePool as string | undefined,
+      bridge: config.bridge as string | undefined,
+      ipConfig: config.ipConfig as string | undefined,
+      ciuser: config.ciuser as string | undefined,
+      cipassword: config.cipassword as string | undefined,
+      sshkeys: config.sshkeys as string | undefined,
     };
 
     const result = await plugin.create(provisionConfig);

@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/admin-guard";
 import { apiSuccess, apiError, ErrorCodes } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
+import { performServiceAction } from "@/lib/provisioning";
 
 export async function POST(
   _req: Request,
@@ -16,6 +17,12 @@ export async function POST(
   if (client.isSuspended) {
     return apiError(ErrorCodes.VALIDATION_ERROR, "Ce compte est déjà suspendu", 400);
   }
+
+  // Find provisioned active services before the transaction
+  const activeProvisionedServices = await prisma.service.findMany({
+    where: { userId: params.id, status: "ACTIVE", externalId: { not: null }, providerId: { not: null } },
+    select: { id: true },
+  });
 
   await prisma.$transaction(async (tx) => {
     // Suspend account + invalidate all sessions
@@ -41,6 +48,11 @@ export async function POST(
       },
     });
   });
+
+  // Stop VMs on provider (fire-and-forget, don't block the response)
+  for (const svc of activeProvisionedServices) {
+    performServiceAction(svc.id, "stop").catch(() => {});
+  }
 
   return apiSuccess({ suspended: true });
 }

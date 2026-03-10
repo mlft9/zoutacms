@@ -9,14 +9,12 @@ import {
   RefreshCw,
   Square,
   Play,
-  Terminal,
   ArrowLeft,
   Server,
   Cpu,
   HardDrive,
   Network,
   Calendar,
-  X,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -40,7 +38,7 @@ const statusConfig: Record<string, { label: string; variant: "success" | "warnin
   PROVISIONING_FAILED:    { label: "Échec provision",  variant: "danger",   dot: "bg-red-500" },
   PROVISIONING_TIMEOUT:   { label: "Timeout",          variant: "danger",   dot: "bg-red-500" },
   REQUIRES_MANUAL_CHECK:  { label: "Vérification req.", variant: "warning", dot: "bg-orange-500" },
-  SUSPENDED:              { label: "Suspendu",         variant: "warning",  dot: "bg-orange-500" },
+  SUSPENDED:              { label: "Arrêtée",          variant: "neutral",  dot: "bg-gray-400" },
   TERMINATING:            { label: "Résiliation...",   variant: "neutral",  dot: "bg-gray-400 animate-pulse" },
   TERMINATED:             { label: "Résilié",          variant: "danger",   dot: "bg-red-500" },
 };
@@ -64,8 +62,6 @@ export default function ServiceDetailPage() {
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [consoleUrl, setConsoleUrl] = useState<string | null>(null);
-  const [showConsole, setShowConsole] = useState(false);
 
   const fetchService = useCallback(async () => {
     const res = await fetch(`/api/client/services/${id}`);
@@ -103,20 +99,7 @@ export default function ServiceDetailPage() {
     }
   }
 
-  async function handleConsole() {
-    if (showConsole) { setShowConsole(false); return; }
-    try {
-      const res = await fetch(`/api/client/services/${id}/console`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Console non disponible");
-      setConsoleUrl(data.url);
-      setShowConsole(true);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Console non disponible");
-    }
-  }
-
-  if (loading) return <div className="py-12 text-center text-sm text-gray-500">Chargement...</div>;
+if (loading) return <div className="py-12 text-center text-sm text-gray-500">Chargement...</div>;
   if (!service) return null;
 
   const cfg = statusConfig[service.status] ?? { label: service.status, variant: "neutral" as const, dot: "bg-gray-400" };
@@ -186,15 +169,6 @@ export default function ServiceDetailPage() {
             <RefreshCw className="h-4 w-4 mr-1" />
             Redémarrer
           </Button>
-          <Button
-            variant={showConsole ? "primary" : "secondary"} size="sm"
-            disabled={!isProvisioned || !isActive}
-            onClick={handleConsole}
-            title={!isProvisioned ? "Service non provisionné" : undefined}
-          >
-            <Terminal className="h-4 w-4 mr-1" />
-            Console
-          </Button>
         </div>
       </div>
 
@@ -206,26 +180,6 @@ export default function ServiceDetailPage() {
           </p>
           <p className="text-sm text-red-600 dark:text-red-400 mt-1">{service.provisionError}</p>
         </div>
-      )}
-
-      {/* Console iframe */}
-      {showConsole && consoleUrl && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between py-3">
-            <CardTitle className="text-base">Console</CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => setShowConsole(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent className="p-0">
-            <iframe
-              src={consoleUrl}
-              className="w-full h-[500px] rounded-b-lg border-0"
-              title="Console"
-              sandbox="allow-same-origin allow-scripts allow-forms"
-            />
-          </CardContent>
-        </Card>
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">

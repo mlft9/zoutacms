@@ -19,9 +19,14 @@ export async function GET(
       type: true,
       status: true,
       config: true,
+      externalId: true,
+      provisionError: true,
+      provisionAttempts: true,
+      nextRetryAt: true,
       createdAt: true,
       updatedAt: true,
       user: { select: { id: true, email: true, firstName: true, lastName: true } },
+      provider: { select: { id: true, name: true, provider: true } },
     },
   });
 

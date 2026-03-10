@@ -76,7 +76,7 @@ export async function POST(req: Request) {
   if (!client) return apiError(ErrorCodes.CLIENT_NOT_FOUND, "Client introuvable", 404);
 
   // Optionally attach a provider if specified
-  const providerId = (parsed.data as { providerId?: string }).providerId ?? null;
+  const providerId = parsed.data.providerId ?? null;
   if (providerId) {
     const prov = await prisma.providerConfig.findUnique({ where: { id: providerId } });
     if (!prov) return apiError(ErrorCodes.VALIDATION_ERROR, "Provider introuvable", 404);
