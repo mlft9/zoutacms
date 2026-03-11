@@ -23,7 +23,6 @@ export async function POST() {
   const response = NextResponse.json({ success: true, data: { done: true } });
   response.cookies.set("setup-complete", "true", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
     maxAge: 60 * 60 * 24 * 365 * 10,

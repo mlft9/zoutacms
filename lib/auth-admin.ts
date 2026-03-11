@@ -9,6 +9,8 @@ import { authOptions } from "./auth";
  * the portal field in the JWT), but this instance stores the JWT in a
  * different cookie and points the signIn page to /admin/login.
  */
+const isSecure = process.env.NEXTAUTH_URL?.startsWith("https://") ?? false;
+
 export const adminAuthOptions: NextAuthOptions = {
   ...authOptions,
   pages: {
@@ -17,38 +19,35 @@ export const adminAuthOptions: NextAuthOptions = {
   },
   cookies: {
     sessionToken: {
-      name:
-        process.env.NODE_ENV === "production"
-          ? "__Secure-next-auth.admin-session-token"
-          : "next-auth.admin-session-token",
+      name: isSecure
+        ? "__Secure-next-auth.admin-session-token"
+        : "next-auth.admin-session-token",
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: process.env.NODE_ENV === "production",
+        secure: isSecure,
       },
     },
     callbackUrl: {
-      name:
-        process.env.NODE_ENV === "production"
-          ? "__Secure-next-auth.admin-callback-url"
-          : "next-auth.admin-callback-url",
+      name: isSecure
+        ? "__Secure-next-auth.admin-callback-url"
+        : "next-auth.admin-callback-url",
       options: {
         sameSite: "lax",
         path: "/",
-        secure: process.env.NODE_ENV === "production",
+        secure: isSecure,
       },
     },
     csrfToken: {
-      name:
-        process.env.NODE_ENV === "production"
-          ? "__Host-next-auth.admin-csrf-token"
-          : "next-auth.admin-csrf-token",
+      name: isSecure
+        ? "__Host-next-auth.admin-csrf-token"
+        : "next-auth.admin-csrf-token",
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: process.env.NODE_ENV === "production",
+        secure: isSecure,
       },
     },
   },

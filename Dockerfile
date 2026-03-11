@@ -35,6 +35,9 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node \
   ./node_modules/.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node
 
+RUN touch .setup-progress.json && chown nextjs:nodejs .setup-progress.json && \
+    chown nextjs:nodejs .
+
 USER nextjs
 
 EXPOSE 3000

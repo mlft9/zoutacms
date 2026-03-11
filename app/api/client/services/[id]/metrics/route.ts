@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { runHealthCheck } from "@/lib/health-check";
+
+const REFRESH_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
 
 export async function GET(
   _req: NextRequest,
@@ -39,6 +42,13 @@ export async function GET(
   }
 
   const history = [...service.healthChecks].reverse();
+
+  // Trigger a fresh check in the background if last check is older than threshold
+  const lastCheck = service.healthChecks[0];
+  const isStale = !lastCheck || Date.now() - new Date(lastCheck.checkedAt).getTime() > REFRESH_THRESHOLD_MS;
+  if (isStale && service.externalId && service.providerId) {
+    runHealthCheck(service.id).catch(() => {});
+  }
 
   return NextResponse.json({
     success: true,

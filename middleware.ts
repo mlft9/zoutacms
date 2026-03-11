@@ -17,8 +17,17 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Always allow setup routes to pass through
+  // Cron routes: always allow (secured by CRON_SECRET header, not cookie)
+  if (pathname.startsWith("/api/cron/")) {
+    return NextResponse.next();
+  }
+
+  // Setup routes: allow only if setup is not yet complete
   if (pathname.startsWith("/setup") || pathname.startsWith("/api/setup")) {
+    const setupComplete = req.cookies.get(SETUP_COOKIE)?.value === "true";
+    if (setupComplete && pathname.startsWith("/setup")) {
+      return NextResponse.redirect(new URL("/admin/login", req.url));
+    }
     return NextResponse.next();
   }
 

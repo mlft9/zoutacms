@@ -40,6 +40,16 @@ npm run db:seed
 npm run dev
 ```
 
+## Commande utiles
+
+```bash
+# 1. Vider les images 
+docker system prune -af 2>&1
+
+# 2. Reset le container 
+docker compose down -v && docker compose build --no-cache && docker compose up -d
+```
+
 L'application est accessible sur [http://localhost:3000](http://localhost:3000).
 
 ## Comptes de test
