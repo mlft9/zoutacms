@@ -14,6 +14,12 @@ import {
   Activity,
   ChevronLeft,
   Menu,
+  Package,
+  Tag,
+  ShoppingCart,
+  Receipt,
+  ShoppingBag,
+  ClipboardList,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -23,30 +29,84 @@ interface NavItem {
   icon: React.ElementType;
 }
 
-const adminNavItems: NavItem[] = [
-  { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-  { label: "Clients", href: "/admin/clients", icon: Users },
-  { label: "Services", href: "/admin/services", icon: Server },
-  { label: "Plugins", href: "/admin/plugins", icon: Puzzle },
-  { label: "Monitoring", href: "/admin/monitoring", icon: Activity },
-  { label: "Logs", href: "/admin/logs", icon: FileText },
-  { label: "Paramètres", href: "/admin/settings", icon: Settings },
+interface NavGroup {
+  label?: string;
+  items: NavItem[];
+}
+
+const adminNavGroups: NavGroup[] = [
+  {
+    items: [
+      { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "Gestion",
+    items: [
+      { label: "Clients", href: "/admin/clients", icon: Users },
+      { label: "Services", href: "/admin/services", icon: Server },
+      { label: "Groupes de produits", href: "/admin/products", icon: Package },
+      { label: "Produits", href: "/admin/plans", icon: Tag },
+      { label: "Commandes", href: "/admin/orders", icon: ShoppingCart },
+      { label: "Factures", href: "/admin/invoices", icon: Receipt },
+    ],
+  },
+  {
+    label: "Système",
+    items: [
+      { label: "Plugins", href: "/admin/plugins", icon: Puzzle },
+      { label: "Monitoring", href: "/admin/monitoring", icon: Activity },
+      { label: "Logs", href: "/admin/logs", icon: FileText },
+    ],
+  },
 ];
 
 const clientNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Catalogue", href: "/catalog", icon: ShoppingBag },
+  { label: "Mes commandes", href: "/orders", icon: ClipboardList },
   { label: "Mes services", href: "/services", icon: Server },
-  { label: "Mes factures", href: "/invoices", icon: FileText },
+  { label: "Mes factures", href: "/invoices", icon: Receipt },
 ];
 
 interface SidebarProps {
   role: "ADMIN" | "CLIENT";
 }
 
+function NavLink({
+  item,
+  collapsed,
+  pathname,
+}: {
+  item: NavItem;
+  collapsed: boolean;
+  pathname: string;
+}) {
+  const Icon = item.icon;
+  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+  return (
+    <li>
+      <Link
+        href={item.href}
+        className={cn(
+          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+          isActive
+            ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+            : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
+          collapsed && "justify-center px-2",
+        )}
+        title={collapsed ? item.label : undefined}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {!collapsed && <span>{item.label}</span>}
+      </Link>
+    </li>
+  );
+}
+
 export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const navItems = role === "ADMIN" ? adminNavItems : clientNavItems;
 
   return (
     <>
@@ -94,57 +154,64 @@ export function Sidebar({ role }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-2">
-          {role === "ADMIN" && (
-            <div className="mb-2 px-2">
-              {!collapsed && (
-                <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                  Administration
-                </p>
-              )}
-            </div>
+        <nav className="flex-1 overflow-y-auto p-2 space-y-4">
+          {role === "ADMIN" ? (
+            adminNavGroups.map((group, i) => (
+              <div key={i}>
+                {group.label && !collapsed && (
+                  <p className="mb-1 px-2 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                    {group.label}
+                  </p>
+                )}
+                {group.label && collapsed && i > 0 && (
+                  <div className="mx-2 border-t border-gray-200 dark:border-gray-700 mb-1" />
+                )}
+                <ul className="space-y-0.5">
+                  {group.items.map((item) => (
+                    <NavLink key={item.href} item={item} collapsed={collapsed} pathname={pathname} />
+                  ))}
+                </ul>
+              </div>
+            ))
+          ) : (
+            <ul className="space-y-0.5">
+              {clientNavItems.map((item) => (
+                <NavLink key={item.href} item={item} collapsed={collapsed} pathname={pathname} />
+              ))}
+            </ul>
           )}
-          <ul className="space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive =
-                pathname === item.href ||
-                pathname.startsWith(item.href + "/");
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                      isActive
-                        ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                        : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
-                      collapsed && "justify-center px-2",
-                    )}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {!collapsed && <span>{item.label}</span>}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
         </nav>
 
-        {/* Bottom: Profile shortcut */}
+        {/* Bottom: Settings (admin) or Profile (client) */}
         <div className="p-2 border-t border-gray-200 dark:border-gray-700">
-          <Link
-            href="/profile"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors",
-              collapsed && "justify-center px-2",
-            )}
-            title={collapsed ? "Profil" : undefined}
-          >
-            <Settings className="h-4 w-4 shrink-0" />
-            {!collapsed && <span>Profil</span>}
-          </Link>
+          {role === "ADMIN" ? (
+            <Link
+              href="/admin/settings"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                pathname.startsWith("/admin/settings")
+                  ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
+                collapsed && "justify-center px-2",
+              )}
+              title={collapsed ? "Paramètres" : undefined}
+            >
+              <Settings className="h-4 w-4 shrink-0" />
+              {!collapsed && <span>Paramètres</span>}
+            </Link>
+          ) : (
+            <Link
+              href="/profile"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors",
+                collapsed && "justify-center px-2",
+              )}
+              title={collapsed ? "Profil" : undefined}
+            >
+              <Settings className="h-4 w-4 shrink-0" />
+              {!collapsed && <span>Profil</span>}
+            </Link>
+          )}
         </div>
       </aside>
 

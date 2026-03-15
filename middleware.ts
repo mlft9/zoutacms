@@ -80,7 +80,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // Protected routes — require a valid JWT token
-  const protectedPaths = ["/dashboard", "/admin", "/profile", "/services"];
+  const protectedPaths = ["/dashboard", "/admin", "/profile", "/services", "/orders", "/invoices", "/catalog"];
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
 
   if (isProtected) {

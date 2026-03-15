@@ -12,7 +12,7 @@ export default async function AdminLoginLayout({
   const session = await getServerSession(authOptions);
 
   // Already logged in as admin → redirect to admin dashboard
-  if (session && session.user.role === "ADMIN") {
+  if (session?.user?.role === "ADMIN") {
     redirect("/admin/dashboard");
   }
 

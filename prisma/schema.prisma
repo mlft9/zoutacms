@@ -37,6 +37,9 @@ model User {
   services      Service[]
   clientNotes   AdminNote[]              // notes écrites à propos de ce client
   adminNotes    AdminNote[] @relation("AdminNotes") // notes écrites par cet admin
+  // Phase 6
+  orders        Order[]
+  invoices      Invoice[]
 
   @@index([email])
   @@index([role])
@@ -121,6 +124,9 @@ model Service {
   // Phase 5 — Monitoring
   healthChecks HealthCheck[]
   alerts       Alert[]
+  // Phase 6 — Billing
+  order        Order?
+  invoices     Invoice[]
   // Multi-tenant preparation
   tenantId    String?
   createdAt   DateTime      @default(now())
@@ -158,6 +164,7 @@ model ProviderConfig {
   config    Json      // URL, token, params spécifiques (chiffrés)
   isActive  Boolean   @default(true)
   services  Service[]
+  plans     Plan[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -233,4 +240,126 @@ model PasswordReset {
 
   @@index([token])
   @@index([userId])
+}
+
+// Phase 6 — Catalogue & Facturation
+
+model Product {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean   @default(true)
+  plans       Plan[]
+  tenantId    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
+model Plan {
+  id              String          @id @default(cuid())
+  name            String
+  productId       String
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type            ServiceType     @default(VPS)
+  providerId      String?
+  provider        ProviderConfig? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  priceMonthly    Decimal         @db.Decimal(10, 2)
+  priceQuarterly  Decimal?        @db.Decimal(10, 2)
+  priceAnnual     Decimal?        @db.Decimal(10, 2)
+  provisionConfig Json
+  isActive        Boolean         @default(true)
+  orders          Order[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([productId])
+  @@index([isActive])
+  @@index([type])
+  @@index([providerId])
+}
+
+model Order {
+  id           String       @id @default(cuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId       String
+  plan         Plan         @relation(fields: [planId], references: [id])
+  status       OrderStatus  @default(AWAITING_PAYMENT)
+  billingCycle BillingCycle @default(MONTHLY)
+  notes        String?
+  // Cloud-init fields collectés à la commande
+  hostname     String?
+  rootPassword String?
+  sshKey       String?
+  // Expiration automatique si non payé après 24h
+  expiresAt    DateTime?
+  serviceId    String?      @unique
+  service      Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  invoices     Invoice[]
+  tenantId     String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([planId])
+  @@index([expiresAt])
+}
+
+enum OrderStatus {
+  AWAITING_PAYMENT
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  orderId         String?
+  order           Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  serviceId       String?
+  service         Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  amount          Decimal       @db.Decimal(10, 2)
+  status          InvoiceStatus @default(PENDING)
+  dueDate         DateTime
+  paidAt          DateTime?
+  stripeSessionId String?
+  description     String?
+  tenantId        String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([orderId])
+  @@index([serviceId])
+  @@index([dueDate])
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+  EXPIRED
+}
+
+model BillingConfig {
+  id                 String   @id @default("singleton")
+  reminderDaysBefore Int      @default(3)
+  gracePeriodDays    Int      @default(7)
+  terminationDays    Int      @default(30)
+  updatedAt          DateTime @updatedAt
 }

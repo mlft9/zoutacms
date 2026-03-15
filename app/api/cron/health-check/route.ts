@@ -36,5 +36,27 @@ export async function GET(req: NextRequest) {
     where: { checkedAt: { lt: cutoff } },
   });
 
-  return NextResponse.json({ success: true, checked, errors, purged });
+  // Expire orders not paid after 24h
+  const now = new Date();
+  const expiredOrders = await prisma.order.findMany({
+    where: { status: "AWAITING_PAYMENT", expiresAt: { lt: now } },
+    select: { id: true },
+  });
+
+  let expired = 0;
+  for (const order of expiredOrders) {
+    await prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: "CANCELLED" },
+      });
+      await tx.invoice.updateMany({
+        where: { orderId: order.id, status: "PENDING" },
+        data: { status: "EXPIRED" },
+      });
+    });
+    expired++;
+  }
+
+  return NextResponse.json({ success: true, checked, errors, purged, expired });
 }
